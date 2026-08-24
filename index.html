@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>計算機</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="計算機">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root{
+    --bg:#000;
+    --num:#333333;
+    --num-active:#5a5a5a;
+    --fn:#a5a5a5;
+    --fn-active:#d4d4d2;
+    --op:#ff9f0a;
+    --op-active:#ffc76b;
+    --text:#ffffff;
+    --text-dark:#000000;
+    --gap:12px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    -webkit-font-smoothing:antialiased;
+    -webkit-tap-highlight-color:transparent;
+    -webkit-user-select:none;
+    user-select:none;
+    overflow:hidden;
+    touch-action:manipulation;
+    overscroll-behavior:none;
+  }
+  #app{
+    height:100dvh;
+    max-width:480px;
+    margin:0 auto;
+    display:flex;
+    flex-direction:column;
+    padding:
+      calc(env(safe-area-inset-top) + 10px)
+      calc(env(safe-area-inset-right) + 14px)
+      calc(env(safe-area-inset-bottom) + 14px)
+      calc(env(safe-area-inset-left) + 14px);
+  }
+
+  /* 表示部分 */
+  #screen{
+    flex:1;
+    min-height:110px;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    justify-content:flex-end;
+    padding:0 8px 14px;
+    position:relative;
+  }
+  #expr{
+    font-size:20px;
+    color:#8e8e93;
+    height:26px;
+    line-height:26px;
+    white-space:nowrap;
+    overflow:hidden;
+    max-width:100%;
+  }
+  #out{
+    font-size:76px;
+    font-weight:300;
+    line-height:1.06;
+    letter-spacing:-0.02em;
+    white-space:nowrap;
+    overflow:hidden;
+    max-width:100%;
+    width:100%;
+    text-align:right;
+  }
+  #toast{
+    position:absolute;
+    left:50%;
+    top:8px;
+    transform:translateX(-50%);
+    background:rgba(255,255,255,.15);
+    color:#fff;
+    font-size:13px;
+    padding:6px 14px;
+    border-radius:999px;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .2s;
+  }
+  #toast.show{opacity:1;}
+
+  /* ボタン */
+  #pad{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:var(--gap);
+    flex:0 0 auto;
+  }
+  button{
+    border:none;
+    border-radius:999px;
+    font-family:inherit;
+    font-size:clamp(24px,7.5vw,34px);
+    font-weight:400;
+    color:var(--text);
+    background:var(--num);
+    cursor:pointer;
+    transition:background .08s ease;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:0;
+    aspect-ratio:1 / 1;   /* 正円にする */
+  }
+  button.fn{background:var(--fn);color:var(--text-dark);font-weight:500;}
+  button.op{background:var(--op);font-size:clamp(28px,9vw,40px);}
+  button.op.selected{background:#fff;color:var(--op);}
+  button.wide{grid-column:span 2;aspect-ratio:auto;justify-content:flex-start;padding-left:clamp(24px,8vw,36px);}
+  button.pressed{background:var(--num-active);}
+  button.fn.pressed{background:var(--fn-active);}
+  button.op.pressed{background:var(--op-active);}
+
+  /* 画面が低いとき（横向きなど）は正円をやめて詰める */
+  @media (max-height:640px){
+    #out{font-size:56px;}
+    #screen{min-height:70px;padding-bottom:8px;}
+    #pad{height:74vh;grid-auto-rows:1fr;}
+    button{aspect-ratio:auto;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="screen">
+    <div id="toast">コピーしました</div>
+    <div id="expr"></div>
+    <div id="out">0</div>
+  </div>
+  <div id="pad">
+    <button class="fn" data-k="clear" id="btnClear">AC</button>
+    <button class="fn" data-k="sign">+/−</button>
+    <button class="fn" data-k="percent">%</button>
+    <button class="op" data-k="op" data-op="/">÷</button>
+
+    <button data-k="num" data-n="7">7</button>
+    <button data-k="num" data-n="8">8</button>
+    <button data-k="num" data-n="9">9</button>
+    <button class="op" data-k="op" data-op="*">×</button>
+
+    <button data-k="num" data-n="4">4</button>
+    <button data-k="num" data-n="5">5</button>
+    <button data-k="num" data-n="6">6</button>
+    <button class="op" data-k="op" data-op="-">−</button>
+
+    <button data-k="num" data-n="1">1</button>
+    <button data-k="num" data-n="2">2</button>
+    <button data-k="num" data-n="3">3</button>
+    <button class="op" data-k="op" data-op="+">＋</button>
+
+    <button class="wide" data-k="num" data-n="0">0</button>
+    <button data-k="dot">.</button>
+    <button class="op" data-k="equal">＝</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var outEl   = document.getElementById('out');
+  var exprEl  = document.getElementById('expr');
+  var clearEl = document.getElementById('btnClear');
+  var toastEl = document.getElementById('toast');
+  var padEl   = document.getElementById('pad');
+
+  var cur   = "0";    // 入力中の数（文字列）
+  var prev  = null;   // ひとつ前の数
+  var op    = null;   // 待っている記号
+  var fresh = true;   // 次に数字を押したら入れ替える
+  var err   = false;  // エラー中か
+
+  var SYM = { "+":"＋", "-":"−", "*":"×", "/":"÷" };
+
+  /* ---- 表示 ---- */
+
+  function pretty(s){
+    if(s === "エラー") return s;
+    if(s.indexOf("e") >= 0 || s.indexOf("E") >= 0) return s;
+    var neg = s.charAt(0) === "-";
+    if(neg) s = s.slice(1);
+    var parts = s.split(".");
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return (neg ? "-" : "") + parts.join(".");
+  }
+
+  // 桁が増えたら、枠に収まるまで文字を小さくする
+  function fitFont(){
+    var size = window.innerHeight <= 640 ? 56 : 76;
+    outEl.style.fontSize = size + "px";
+    while(size > 24 && outEl.scrollWidth > outEl.clientWidth){
+      size -= 2;
+      outEl.style.fontSize = size + "px";
+    }
+  }
+
+  function render(){
+    var t = pretty(cur);
+    outEl.textContent = t;
+    fitFont();
+    clearEl.textContent = (cur === "0" && prev === null && op === null && !err) ? "AC" : "C";
+    var btns = padEl.querySelectorAll('button.op');
+    for(var i=0;i<btns.length;i++){
+      var o = btns[i].getAttribute('data-op');
+      btns[i].classList.toggle('selected', !!(o && o === op && fresh && !err));
+    }
+  }
+
+  function setExpr(text){ exprEl.textContent = text; }
+
+  /* ---- 計算 ---- */
+
+  function trim(n){
+    if(!isFinite(n)) return "エラー";
+    var s = Number(n.toPrecision(12)).toString();
+    return s;
+  }
+
+  function calc(a, b, o){
+    switch(o){
+      case "+": return a + b;
+      case "-": return a - b;
+      case "*": return a * b;
+      case "/": return b === 0 ? NaN : a / b;
+    }
+    return b;
+  }
+
+  /* ---- 操作 ---- */
+
+  function pressNum(d){
+    if(err) allClear();
+    if(fresh){ cur = d; fresh = false; }
+    else if(cur === "0"){ cur = d; }
+    else if(cur === "-0"){ cur = "-" + d; }
+    else if(cur.replace("-","").replace(".","").length < 12){ cur += d; }
+    render();
+  }
+
+  function pressDot(){
+    if(err) allClear();
+    if(fresh){ cur = "0."; fresh = false; }
+    else if(cur.indexOf(".") < 0){ cur += "."; }
+    render();
+  }
+
+  function pressOp(o){
+    if(err) return;
+    var v = parseFloat(cur);
+    if(op !== null && !fresh){
+      var r = calc(prev, v, op);
+      if(!isFinite(r)){ showError(); return; }
+      prev = r;
+      cur = trim(r);
+    }else{
+      prev = v;
+    }
+    op = o;
+    fresh = true;
+    setExpr(pretty(trim(prev)) + " " + SYM[o]);
+    render();
+  }
+
+  function pressEqual(){
+    if(err || op === null) return;
+    var v = parseFloat(cur);
+    var r = calc(prev, v, op);
+    if(!isFinite(r)){ showError(); return; }
+    setExpr(pretty(trim(prev)) + " " + SYM[op] + " " + pretty(trim(v)) + " ＝");
+    cur = trim(r);
+    prev = null; op = null; fresh = true;
+    render();
+  }
+
+  function pressSign(){
+    if(err) return;
+    if(cur === "0") return;
+    cur = (cur.charAt(0) === "-") ? cur.slice(1) : "-" + cur;
+    render();
+  }
+
+  function pressPercent(){
+    if(err) return;
+    cur = trim(parseFloat(cur) / 100);
+    render();
+  }
+
+  function pressBack(){
+    if(err){ allClear(); return; }
+    if(fresh) return;
+    cur = cur.slice(0, -1);
+    if(cur === "" || cur === "-"){ cur = "0"; fresh = true; }
+    render();
+  }
+
+  function clearEntry(){
+    cur = "0"; fresh = true;
+    if(op === null) setExpr("");
+    render();
+  }
+
+  function allClear(){
+    cur = "0"; prev = null; op = null; fresh = true; err = false;
+    setExpr("");
+    render();
+  }
+
+  function pressClear(){
+    if(clearEl.textContent === "AC") allClear();
+    else if(err) allClear();
+    else clearEntry();
+  }
+
+  function showError(){
+    err = true;
+    cur = "エラー";
+    prev = null; op = null; fresh = true;
+    setExpr("0では割れません");
+    render();
+  }
+
+  /* ---- 入力の受け取り ---- */
+
+  padEl.addEventListener('click', function(e){
+    var b = e.target.closest('button');
+    if(!b) return;
+    switch(b.getAttribute('data-k')){
+      case 'num':     pressNum(b.getAttribute('data-n')); break;
+      case 'dot':     pressDot(); break;
+      case 'op':      pressOp(b.getAttribute('data-op')); break;
+      case 'equal':   pressEqual(); break;
+      case 'sign':    pressSign(); break;
+      case 'percent': pressPercent(); break;
+      case 'clear':   pressClear(); break;
+    }
+  });
+
+  // 押した感じを出す（iPhoneでも反応するように）
+  padEl.addEventListener('pointerdown', function(e){
+    var b = e.target.closest('button');
+    if(b) b.classList.add('pressed');
+  });
+  ['pointerup','pointerleave','pointercancel'].forEach(function(ev){
+    padEl.addEventListener(ev, function(e){
+      var b = e.target.closest('button');
+      if(b) b.classList.remove('pressed');
+    });
+  });
+
+  // パソコンのキーボードでも使えるように
+  window.addEventListener('keydown', function(e){
+    var k = e.key;
+    if(k >= '0' && k <= '9'){ pressNum(k); }
+    else if(k === '.'){ pressDot(); }
+    else if(k === '+' || k === '-' || k === '*' || k === '/'){ pressOp(k); }
+    else if(k === 'Enter' || k === '='){ e.preventDefault(); pressEqual(); }
+    else if(k === 'Backspace'){ pressBack(); }
+    else if(k === 'Escape'){ allClear(); }
+    else if(k === '%'){ pressPercent(); }
+    else return;
+    e.preventDefault();
+  });
+
+  // 表示を左になぞると1文字消す（スマホ用の取り消し）
+  var sx = null;
+  var screen = document.getElementById('screen');
+  screen.addEventListener('pointerdown', function(e){ sx = e.clientX; });
+  screen.addEventListener('pointerup', function(e){
+    if(sx === null) return;
+    var dx = e.clientX - sx;
+    sx = null;
+    if(dx < -40) pressBack();
+  });
+
+  // 表示を軽くたたくと答えをコピー
+  screen.addEventListener('click', function(){
+    if(err) return;
+    var text = cur;
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(showToast).catch(function(){});
+    }
+  });
+  var toastTimer = null;
+  function showToast(){
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 1200);
+  }
+
+  // 画面を回したときも文字の大きさを合わせ直す
+  window.addEventListener('resize', function(){ fitFont(); });
+
+  render();
+
+  // オフラインでも動くようにする（安全な接続のときだけ有効）
+  if('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  }
+})();
+</script>
+</body>
+</html>
