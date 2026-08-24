@@ -8,6 +8,9 @@ PWA（ブラウザで動き、iPhone のホーム画面に置けるウェブア�
 | 計算機 | https://terakoshi.github.io/keisanki/ | 1本目。ふつうの電卓 |
 | 電波マップ | https://terakoshi.github.io/keisanki/denpa/ | 2本目。家のWi-Fiの電波を色つきの間取り図にする |
 
+アプリを足すときの決まりごとは **[CLAUDE.md](CLAUDE.md)** にまとめてある
+（AIに手伝ってもらうときは、そこが自動で読まれる）。
+
 ---
 
 # 1本目・計算機
