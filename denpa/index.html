@@ -1,0 +1,840 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<title>電波マップ</title>
+<meta name="theme-color" content="#12161c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="電波マップ">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<style>
+  :root{
+    --bg:#12161c; --panel:#1b212b; --line:#2c3543; --text:#e9edf3; --dim:#96a1b2;
+    --accent:#4ea8ff; --paper:#f4f1e9; --ink:#2b2b2b;
+    --safe-b: env(safe-area-inset-bottom, 0px);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    display:flex; flex-direction:column; overflow:hidden;
+    padding-top: env(safe-area-inset-top, 0px);
+    -webkit-user-select:none; user-select:none;
+  }
+
+  /* ---- 上のバー ---- */
+  header{display:flex; align-items:center; gap:8px; padding:8px 12px 4px;}
+  header h1{font-size:16px; margin:0; font-weight:700; letter-spacing:.04em;}
+  header .sp{flex:1;}
+  .iconbtn{
+    width:34px; height:34px; border-radius:10px; border:1px solid var(--line);
+    background:var(--panel); color:var(--text); font-size:15px; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .iconbtn:active{background:#28313f;}
+
+  /* ---- いまの電波 ---- */
+  #reading{
+    margin:2px 12px 6px; padding:8px 10px; border-radius:12px;
+    background:var(--panel); border:1px solid var(--line);
+    display:flex; align-items:center; gap:10px; min-height:52px;
+  }
+  #bars{display:flex; align-items:flex-end; gap:3px; height:26px;}
+  #bars i{width:6px; border-radius:2px; background:#39424f; display:block;}
+  #bars i:nth-child(1){height:8px}#bars i:nth-child(2){height:14px}
+  #bars i:nth-child(3){height:20px}#bars i:nth-child(4){height:26px}
+  #rtxt{flex:1; min-width:0;}
+  #rmain{font-size:14px; font-weight:700;}
+  #rsub{font-size:11px; color:var(--dim); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  #rscore{font-size:24px; font-weight:800; font-variant-numeric:tabular-nums;}
+
+  /* ---- 地図 ---- */
+  #wrap{flex:1; position:relative; margin:0 10px; min-height:0;}
+  canvas{
+    position:absolute; inset:0; width:100%; height:100%;
+    background:var(--paper); border-radius:14px; touch-action:none;
+    box-shadow:0 2px 14px rgba(0,0,0,.45);
+  }
+  #hint{
+    position:absolute; left:0; right:0; bottom:8px; margin:0 auto; width:max-content; max-width:92%;
+    background:rgba(18,22,28,.82); color:#fff; font-size:12px; padding:6px 12px; border-radius:999px;
+    pointer-events:none; text-align:center; transition:opacity .5s;
+  }
+  #hint.fade{opacity:0;}
+  #busy{
+    position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+    background:rgba(244,241,233,.55); border-radius:14px; color:#2b2b2b; font-weight:700; font-size:15px;
+  }
+  #busy.on{display:flex;}
+
+  /* ---- 色の見本 ---- */
+  #legend{display:flex; align-items:center; gap:8px; padding:8px 14px 2px; font-size:11px; color:var(--dim);}
+  #lbar{flex:1; height:9px; border-radius:5px;
+    background:linear-gradient(90deg,#d62828,#f77f00,#fcbf49,#90be6d,#2a9d8f);}
+
+  /* ---- 下のボタン ---- */
+  nav{display:flex; gap:6px; padding:6px 10px 0;}
+  nav button{
+    flex:1; padding:9px 2px 7px; border-radius:12px; border:1px solid var(--line);
+    background:var(--panel); color:var(--dim); font-size:10px; font-weight:600;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+  }
+  nav button b{font-size:17px; font-weight:400; line-height:1;}
+  nav button.on{background:var(--accent); border-color:var(--accent); color:#06121f;}
+  nav button.on b{filter:none;}
+  #tools{display:flex; gap:6px; padding:6px 10px calc(8px + var(--safe-b));}
+  #tools button{
+    flex:1; padding:10px 4px; border-radius:12px; border:1px solid var(--line);
+    background:transparent; color:var(--dim); font-size:12px; font-weight:600;
+  }
+  #tools button:active{background:var(--panel);}
+
+  /* ---- かぶせて出す画面 ---- */
+  .sheet{
+    position:fixed; inset:0; background:rgba(8,10,14,.72); z-index:20;
+    display:none; align-items:flex-end; justify-content:center;
+  }
+  .sheet.on{display:flex;}
+  .sheet .inner{
+    width:100%; max-width:520px; background:var(--panel); color:var(--text);
+    border-radius:18px 18px 0 0; padding:18px 18px calc(20px + var(--safe-b));
+    max-height:86vh; overflow:auto; border-top:1px solid var(--line);
+  }
+  .sheet h2{font-size:16px; margin:0 0 10px;}
+  .sheet p, .sheet li{font-size:13px; line-height:1.75; color:#cfd8e4;}
+  .sheet ol{padding-left:1.2em; margin:6px 0 14px;}
+  .note{font-size:12px; color:var(--dim); background:#151b23; border:1px solid var(--line);
+        border-radius:10px; padding:10px 12px; line-height:1.7;}
+  .row{display:flex; align-items:center; justify-content:space-between; gap:10px;
+       padding:11px 0; border-bottom:1px solid var(--line); font-size:13px;}
+  .row:last-of-type{border-bottom:none;}
+  select{
+    background:#151b23; color:var(--text); border:1px solid var(--line);
+    border-radius:9px; padding:8px 10px; font-size:13px; font-family:inherit;
+  }
+  .sw{width:52px; height:30px; border-radius:15px; background:#39424f; border:none; position:relative; flex:none;}
+  .sw::after{content:""; position:absolute; top:3px; left:3px; width:24px; height:24px;
+             border-radius:12px; background:#fff; transition:left .15s;}
+  .sw.on{background:var(--accent);} .sw.on::after{left:25px;}
+  .big{
+    width:100%; margin-top:14px; padding:14px; border-radius:12px; border:none;
+    background:var(--accent); color:#06121f; font-size:15px; font-weight:700; font-family:inherit;
+  }
+  .ghost{background:transparent; color:var(--dim); border:1px solid var(--line);}
+  .danger{background:transparent; color:#ff8b8b; border:1px solid #5a2b2b;}
+
+  /* 手動で強さを選ぶ */
+  #pick .inner{text-align:center;}
+  .picks{display:flex; flex-direction:column; gap:8px; margin-top:6px;}
+  .picks button{
+    padding:14px; border-radius:12px; border:1px solid var(--line); background:#151b23;
+    color:var(--text); font-size:15px; font-weight:700; font-family:inherit;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .swatch{width:26px; height:26px; border-radius:8px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>電波マップ</h1>
+  <div class="sp"></div>
+  <button class="iconbtn" id="bHelp" aria-label="使い方">?</button>
+  <button class="iconbtn" id="bSet" aria-label="設定">⚙</button>
+</header>
+
+<div id="reading">
+  <div id="bars"><i></i><i></i><i></i><i></i></div>
+  <div id="rtxt">
+    <div id="rmain">まだ測っていません</div>
+    <div id="rsub">地図を押すと、その場所の電波を測ります</div>
+  </div>
+  <div id="rscore">–</div>
+</div>
+
+<div id="wrap">
+  <canvas id="cv"></canvas>
+  <div id="busy">測っています…</div>
+  <div id="hint">立っている場所を押す</div>
+</div>
+
+<div id="legend">
+  <span>弱い</span><div id="lbar"></div><span>強い</span>
+</div>
+
+<nav>
+  <button id="mMeasure" class="on" data-mode="measure"><b>📍</b>測る</button>
+  <button id="mWall" data-mode="wall"><b>🧱</b>かべ</button>
+  <button id="mLabel" data-mode="label"><b>🏷</b>へや名</button>
+  <button id="mRouter" data-mode="router"><b>📶</b>ルーター</button>
+  <button id="mErase" data-mode="erase"><b>🗑</b>消す</button>
+</nav>
+
+<div id="tools">
+  <button id="bUndo">1つ戻す</button>
+  <button id="bSave">画像で保存</button>
+  <button id="bClear">全部消す</button>
+</div>
+
+<!-- 使い方 -->
+<div class="sheet" id="help"><div class="inner">
+  <h2>使い方</h2>
+  <ol>
+    <li>スマホを持って、家の中を <b>1〜2歩ずつ</b> 歩きます。</li>
+    <li>立ち止まったら、地図の「いま自分がいるあたり」を押します。1〜2秒で電波を測って、色の丸が置かれます。</li>
+    <li>あちこちで繰り返すと、歩いた範囲の形（＝間取り）が浮かび上がり、色で電波の良し悪しが分かります。</li>
+    <li>「かべ」で壁を引き、「へや名」で部屋の名前を書くと、間取り図らしくなります。</li>
+    <li>「ルーター」でWi-Fi親機の場所を置くと、どこから弱くなるか分かります。</li>
+  </ol>
+  <div class="note">
+    <b>色の意味</b><br>
+    <span style="color:#2a9d8f">緑</span>＝よく届く／
+    <span style="color:#fcbf49">黄</span>＝ふつう／
+    <span style="color:#f77f00">橙</span>＝弱い／
+    <span style="color:#ff6b6b">赤</span>＝かなり弱い。
+  </div>
+  <div class="note" style="margin-top:10px">
+    <b>どうやって測っているか（大事なところ）</b><br>
+    ブラウザには「電波が何本」を直接読む仕組みがありません。
+    そこでこのアプリは、ごく小さなデータを何度もやりとりして
+    <b>返事の速さ・ゆらぎ・とぎれ</b>を測り、そこから電波の良さを点数（0〜100）にしています。
+    電波が弱い場所ほど、返事が遅れたりバラついたりするので、実際の強さとだいたい合います。<br><br>
+    ※インターネットにつながっていないと測れません。
+    その時は ⚙ の「手動で強さを入れる」を使い、iPhone の画面上のアンテナ本数を見て入れてください。
+  </div>
+  <button class="big" data-close>とじる</button>
+</div></div>
+
+<!-- 設定 -->
+<div class="sheet" id="set"><div class="inner">
+  <h2>設定</h2>
+  <div class="row">
+    <div>手動で強さを入れる<div style="color:var(--dim);font-size:11px;margin-top:3px">押すとアンテナ本数を選ぶ画面が出ます</div></div>
+    <button class="sw" id="swManual"></button>
+  </div>
+  <div class="row">
+    <div>地図の広さ<div style="color:var(--dim);font-size:11px;margin-top:3px">横はば。家の大きさに合わせて</div></div>
+    <select id="selWorld">
+      <option value="6">6 m</option><option value="8">8 m</option>
+      <option value="10">10 m</option><option value="12">12 m</option>
+      <option value="16">16 m</option><option value="20">20 m</option>
+    </select>
+  </div>
+  <div class="row">
+    <div>1点の広がり<div style="color:var(--dim);font-size:11px;margin-top:3px">1回の測定が色を塗る範囲</div></div>
+    <select id="selRadius">
+      <option value="1.2">せまい</option><option value="1.8">ふつう</option><option value="2.6">広い</option>
+    </select>
+  </div>
+  <div class="row">
+    <div>ていねいに測る<div style="color:var(--dim);font-size:11px;margin-top:3px">回数を増やす（少し時間がかかります）</div></div>
+    <button class="sw" id="swCareful"></button>
+  </div>
+  <button class="big" data-close>とじる</button>
+</div></div>
+
+<!-- 手動入力 -->
+<div class="sheet" id="pick"><div class="inner">
+  <h2>この場所の電波は？</h2>
+  <div class="picks">
+    <button data-score="94"><span>とても良い（4本）</span><span class="swatch" style="background:#2a9d8f"></span></button>
+    <button data-score="72"><span>良い（3本）</span><span class="swatch" style="background:#90be6d"></span></button>
+    <button data-score="48"><span>ふつう（2本）</span><span class="swatch" style="background:#fcbf49"></span></button>
+    <button data-score="24"><span>弱い（1本）</span><span class="swatch" style="background:#f77f00"></span></button>
+    <button data-score="4"><span>ほぼ入らない（圏外）</span><span class="swatch" style="background:#d62828"></span></button>
+  </div>
+  <button class="big ghost" data-close>やめる</button>
+</div></div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   1. 保存しておくもの
+   ========================================================= */
+var KEY = 'denpa-map-v1';
+var st = {
+  points: [],      // {x,y,score,rtt,jit,loss,manual}
+  walls:  [],      // {x1,y1,x2,y2}
+  labels: [],      // {x,y,text}
+  router: null,    // {x,y}
+  world:  10,      // 地図の横はば（メートル）
+  radius: 1.8,     // 1点の広がり（メートル）
+  manual: false,
+  careful:false
+};
+var history = [];  // 「1つ戻す」用
+
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(st)); }catch(e){} }
+function load(){
+  try{
+    var v = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if(v && typeof v === 'object'){
+      for(var k in st){ if(v[k] !== undefined) st[k] = v[k]; }
+    }
+  }catch(e){}
+}
+load();
+
+/* =========================================================
+   2. 色（点数 0〜100 → 色）
+   ========================================================= */
+var RAMP = [
+  [  0, 214, 40, 40],
+  [ 30, 247,127,  0],
+  [ 55, 252,191, 73],
+  [ 78, 144,190,109],
+  [100,  42,157,143]
+];
+function color(s){
+  s = Math.max(0, Math.min(100, s));
+  for(var i=0;i<RAMP.length-1;i++){
+    var a = RAMP[i], b = RAMP[i+1];
+    if(s <= b[0]){
+      var t = (s - a[0]) / (b[0] - a[0] || 1);
+      return [
+        Math.round(a[1]+(b[1]-a[1])*t),
+        Math.round(a[2]+(b[2]-a[2])*t),
+        Math.round(a[3]+(b[3]-a[3])*t)
+      ];
+    }
+  }
+  var l = RAMP[RAMP.length-1];
+  return [l[1], l[2], l[3]];
+}
+function css(c){ return 'rgb('+c[0]+','+c[1]+','+c[2]+')'; }
+
+/* =========================================================
+   3. 地図を描く
+   ========================================================= */
+var cv  = document.getElementById('cv');
+var ctx = cv.getContext('2d');
+var W = 0, H = 0, PPM = 1, DPR = 1; // 表示の大きさ と メートル→ピクセル
+
+function fit(){
+  var r = cv.getBoundingClientRect();
+  DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+  W = r.width; H = r.height;
+  cv.width  = Math.round(W * DPR);
+  cv.height = Math.round(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  PPM = W / st.world;
+  draw();
+}
+function toWorld(px, py){ return {x: px / PPM, y: py / PPM}; }
+function toPx(wx, wy){ return {x: wx * PPM, y: wy * PPM}; }
+
+/* --- 電波の色ぬり（測った点のまわりをにじませる） --- */
+/* 小さな絵をいったん作り、引き伸ばして描くと、なめらかににじむ */
+var CELL = 5;
+var heatCv = document.createElement('canvas');
+var ringCv = document.createElement('canvas');
+
+function paintHeat(g){
+  var pts = st.points;
+  if(!pts.length) return;
+  var R = st.radius, R2 = R * R;
+  var cols = Math.max(2, Math.ceil(W / CELL));
+  var rows = Math.max(2, Math.ceil(H / CELL));
+
+  heatCv.width = cols; heatCv.height = rows;
+  var hg = heatCv.getContext('2d');
+  var img = hg.createImageData(cols, rows);
+  var data = img.data, k = 0;
+
+  for(var cy=0; cy<rows; cy++){
+    var my = ((cy + 0.5) / rows) * H / PPM;
+    for(var cx=0; cx<cols; cx++){
+      var mx = ((cx + 0.5) / cols) * W / PPM;
+      var top = 0, num = 0, den = 0;
+
+      for(var i=0;i<pts.length;i++){
+        var dx = pts[i].x - mx, dy = pts[i].y - my;
+        var d2 = dx*dx + dy*dy;
+        if(d2 >= R2) continue;
+        var w = 1 - d2 / R2;          // 0〜1（近いほど大きい）
+        if(w > top) top = w;
+        var ww = w * w;
+        num += ww * pts[i].score; den += ww;
+      }
+      if(top <= 0.01){ k += 4; continue; }
+
+      var c = color(den ? num/den : 0);
+      var a = Math.min(1, top / 0.35) * 0.82;
+      data[k] = c[0]; data[k+1] = c[1]; data[k+2] = c[2];
+      data[k+3] = Math.round(a * 255);
+      k += 4;
+    }
+  }
+  hg.putImageData(img, 0, 0);
+  g.save();
+  g.imageSmoothingEnabled = true;
+  g.drawImage(heatCv, 0, 0, W, H);
+  g.restore();
+
+  // 歩いた範囲のふち＝家の形。丸を重ねた外側だけを残して線にする
+  ringCv.width  = Math.max(1, Math.round(W * DPR));
+  ringCv.height = Math.max(1, Math.round(H * DPR));
+  var rg = ringCv.getContext('2d');
+  rg.setTransform(DPR, 0, 0, DPR, 0, 0);
+  var ro = R * 0.95 * PPM;
+  var ri = Math.max(1, ro - 3);
+  rg.fillStyle = 'rgba(70,76,86,0.62)';
+  rg.beginPath();
+  for(var a1=0; a1<pts.length; a1++){
+    var q1 = toPx(pts[a1].x, pts[a1].y);
+    rg.moveTo(q1.x + ro, q1.y); rg.arc(q1.x, q1.y, ro, 0, 6.2832);
+  }
+  rg.fill();
+  rg.globalCompositeOperation = 'destination-out';
+  rg.beginPath();
+  for(var a2=0; a2<pts.length; a2++){
+    var q2 = toPx(pts[a2].x, pts[a2].y);
+    rg.moveTo(q2.x + ri, q2.y); rg.arc(q2.x, q2.y, ri, 0, 6.2832);
+  }
+  rg.fill();
+  rg.globalCompositeOperation = 'source-over';
+  g.drawImage(ringCv, 0, 0, W, H);
+}
+
+var drag = null;   // かべを引いている途中
+
+function draw(){
+  if(!W) return;
+  ctx.clearRect(0,0,W,H);
+
+  // 床（紙）
+  ctx.fillStyle = '#f4f1e9';
+  ctx.fillRect(0,0,W,H);
+
+  // 1mごとの目もり
+  ctx.strokeStyle = 'rgba(43,43,43,0.10)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for(var m=1; m*PPM < W; m++){ ctx.moveTo(Math.round(m*PPM)+.5, 0); ctx.lineTo(Math.round(m*PPM)+.5, H); }
+  for(var n=1; n*PPM < H; n++){ ctx.moveTo(0, Math.round(n*PPM)+.5); ctx.lineTo(W, Math.round(n*PPM)+.5); }
+  ctx.stroke();
+
+  // 電波の色
+  paintHeat(ctx);
+
+  // かべ
+  ctx.strokeStyle = '#2b2b2b';
+  ctx.lineCap = 'round';
+  ctx.lineWidth = 7;
+  for(var i=0;i<st.walls.length;i++){
+    var w = st.walls[i];
+    ctx.beginPath();
+    ctx.moveTo(w.x1*PPM, w.y1*PPM);
+    ctx.lineTo(w.x2*PPM, w.y2*PPM);
+    ctx.stroke();
+  }
+  if(drag){
+    ctx.strokeStyle = 'rgba(43,43,43,0.45)';
+    ctx.beginPath();
+    ctx.moveTo(drag.x1*PPM, drag.y1*PPM);
+    ctx.lineTo(drag.x2*PPM, drag.y2*PPM);
+    ctx.stroke();
+  }
+
+  // 測った点
+  for(var j=0;j<st.points.length;j++){
+    var p = st.points[j], q = toPx(p.x, p.y);
+    ctx.beginPath(); ctx.arc(q.x, q.y, 4.5, 0, 6.2832);
+    ctx.fillStyle = css(color(p.score)); ctx.fill();
+    ctx.lineWidth = 1.4; ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.stroke();
+  }
+
+  // ルーター
+  if(st.router){
+    var r = toPx(st.router.x, st.router.y);
+    ctx.beginPath(); ctx.arc(r.x, r.y, 15, 0, 6.2832);
+    ctx.fillStyle = '#12161c'; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.font = '15px -apple-system,sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff'; ctx.fillText('📶', r.x, r.y+1);
+  }
+
+  // へや名
+  ctx.font = 'bold 14px -apple-system,"Hiragino Kaku Gothic ProN",sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for(var k=0;k<st.labels.length;k++){
+    var L = st.labels[k], t = toPx(L.x, L.y);
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(244,241,233,0.95)';
+    ctx.strokeText(L.text, t.x, t.y);
+    ctx.fillStyle = '#2b2b2b';
+    ctx.fillText(L.text, t.x, t.y);
+  }
+
+  // 何もないとき
+  if(!st.points.length && !st.walls.length && !st.labels.length && !st.router){
+    ctx.fillStyle = 'rgba(43,43,43,0.35)';
+    ctx.font = '13px -apple-system,sans-serif';
+    ctx.fillText('家の中を歩いて、いまいる場所を押してください', W/2, H/2 - 10);
+    ctx.fillText('押した場所の電波を測って、色がつきます', W/2, H/2 + 12);
+  }
+}
+
+/* =========================================================
+   4. 電波をはかる
+   ========================================================= */
+function ping(timeout){
+  return new Promise(function(resolve){
+    var ac = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var done = false;
+    var timer = setTimeout(function(){
+      if(done) return; done = true;
+      if(ac) try{ ac.abort(); }catch(e){}
+      resolve(null);
+    }, timeout);
+    var t0 = performance.now();
+    var opt = {cache:'no-store'};
+    if(ac) opt.signal = ac.signal;
+    fetch('./ping.txt?t=' + Date.now() + '-' + Math.random(), opt)
+      .then(function(res){ return res.ok ? res.arrayBuffer() : Promise.reject(0); })
+      .then(function(){
+        if(done) return; done = true; clearTimeout(timer);
+        resolve(performance.now() - t0);
+      })
+      .catch(function(){
+        if(done) return; done = true; clearTimeout(timer);
+        resolve(null);
+      });
+  });
+}
+
+function median(a){
+  var b = a.slice().sort(function(x,y){ return x-y; });
+  var h = b.length >> 1;
+  return b.length % 2 ? b[h] : (b[h-1] + b[h]) / 2;
+}
+
+function measure(){
+  var n = st.careful ? 12 : 7;
+  var ok = [], fail = 0;
+  // 1回目は準備運動なので捨てる
+  return ping(2500).then(function(){
+    var chain = Promise.resolve();
+    for(var i=0;i<n;i++){
+      chain = chain.then(function(){
+        return ping(2500).then(function(v){
+          if(v === null) fail++; else ok.push(v);
+        });
+      });
+    }
+    return chain;
+  }).then(function(){
+    if(!ok.length) return null;              // 一度も返事が来ない＝つながっていない
+    var m = median(ok);
+    var s = 0;
+    for(var i=0;i<ok.length;i++) s += Math.abs(ok[i] - m);
+    var jit = s / ok.length;                 // ゆらぎ
+    var loss = fail / n;                     // とぎれの割合
+
+    var mm = Math.max(20, Math.min(900, m));
+    var sRtt = 100 * (1 - Math.log(mm/20) / Math.log(900/20));
+    var sJit = Math.max(0, 100 - jit * 2.2);
+    var score = 0.65*sRtt + 0.35*sJit - loss*60;
+    score = Math.max(0, Math.min(100, score));
+
+    return {score:score, rtt:m, jit:jit, loss:loss};
+  });
+}
+
+/* --- 上の表示を更新 --- */
+var elBars = document.getElementById('bars').children;
+var elMain = document.getElementById('rmain');
+var elSub  = document.getElementById('rsub');
+var elScore= document.getElementById('rscore');
+
+function words(s){
+  if(s >= 78) return 'とても良い';
+  if(s >= 55) return '良い';
+  if(s >= 32) return 'ふつう';
+  if(s >= 12) return '弱い';
+  return 'かなり弱い';
+}
+function showReading(r){
+  if(!r){
+    elMain.textContent = 'まだ測っていません';
+    elSub.textContent  = '地図を押すと、その場所の電波を測ります';
+    elScore.textContent = '–';
+    for(var i=0;i<4;i++) elBars[i].style.background = '#39424f';
+    return;
+  }
+  var c = css(color(r.score));
+  var bars = r.score >= 75 ? 4 : r.score >= 50 ? 3 : r.score >= 28 ? 2 : r.score > 6 ? 1 : 0;
+  for(var i=0;i<4;i++) elBars[i].style.background = (i < bars) ? c : '#39424f';
+  elScore.textContent = Math.round(r.score);
+  elScore.style.color = c;
+  elMain.textContent = words(r.score) + (r.manual ? '（手で入れた値）' : '');
+  elSub.textContent  = r.manual ? 'アンテナ本数から置きました'
+    : '返事 ' + Math.round(r.rtt) + 'ms ／ ゆらぎ ' + Math.round(r.jit) + 'ms ／ とぎれ ' + Math.round(r.loss*100) + '%';
+}
+
+/* =========================================================
+   5. 押したときの動き
+   ========================================================= */
+var mode = 'measure';
+var elHint = document.getElementById('hint');
+var elBusy = document.getElementById('busy');
+var HINTS = {
+  measure:'立っている場所を押す',
+  wall   :'指をすべらせて、かべを引く',
+  label  :'押した場所に、へやの名前を書く',
+  router :'Wi‑Fi親機のある場所を押す',
+  erase  :'消したいものを押す'
+};
+
+var hintTimer = null;
+function setMode(m){
+  mode = m;
+  var bs = document.querySelectorAll('nav button');
+  for(var i=0;i<bs.length;i++) bs[i].classList.toggle('on', bs[i].dataset.mode === m);
+  elHint.textContent = HINTS[m];
+  elHint.classList.remove('fade');
+  clearTimeout(hintTimer);
+  hintTimer = setTimeout(function(){ elHint.classList.add('fade'); }, 4500);
+}
+document.querySelector('nav').addEventListener('click', function(e){
+  var b = e.target.closest('button');
+  if(b) setMode(b.dataset.mode);
+});
+
+function snapshot(){
+  history.push(JSON.stringify({points:st.points, walls:st.walls, labels:st.labels, router:st.router}));
+  if(history.length > 40) history.shift();
+}
+
+var busy = false;
+function addPoint(w){
+  if(busy) return;
+
+  if(st.manual){
+    pending = w;
+    document.getElementById('pick').classList.add('on');
+    return;
+  }
+  busy = true;
+  elBusy.classList.add('on');
+  measure().then(function(r){
+    busy = false;
+    elBusy.classList.remove('on');
+    if(!r){
+      elMain.textContent = 'つながっていません';
+      elSub.textContent  = 'インターネットに出られないため測れません。⚙ の「手動で強さを入れる」をお使いください';
+      elScore.textContent = '–';
+      for(var i=0;i<4;i++) elBars[i].style.background = '#39424f';
+      return;
+    }
+    snapshot();
+    st.points.push({x:w.x, y:w.y, score:r.score, rtt:r.rtt, jit:r.jit, loss:r.loss, manual:false});
+    showReading(r);
+    save(); draw();
+  });
+}
+
+var pending = null;
+document.querySelector('#pick .picks').addEventListener('click', function(e){
+  var b = e.target.closest('button');
+  if(!b || !pending) return;
+  var s = parseFloat(b.dataset.score);
+  snapshot();
+  st.points.push({x:pending.x, y:pending.y, score:s, manual:true});
+  showReading({score:s, manual:true});
+  pending = null;
+  document.getElementById('pick').classList.remove('on');
+  save(); draw();
+});
+
+function nearest(list, w, max){
+  var best = -1, bd = max*max;
+  for(var i=0;i<list.length;i++){
+    var dx = list[i].x - w.x, dy = list[i].y - w.y;
+    var d = dx*dx + dy*dy;
+    if(d < bd){ bd = d; best = i; }
+  }
+  return best;
+}
+function distToWall(wl, w){
+  var vx = wl.x2-wl.x1, vy = wl.y2-wl.y1;
+  var L2 = vx*vx + vy*vy;
+  var t = L2 ? ((w.x-wl.x1)*vx + (w.y-wl.y1)*vy) / L2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  var dx = wl.x1 + vx*t - w.x, dy = wl.y1 + vy*t - w.y;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+function eraseAt(w){
+  var tol = 26 / PPM;   // 指の太さぶん
+  var i = nearest(st.labels, w, tol);
+  if(i >= 0){ snapshot(); st.labels.splice(i,1); save(); draw(); return; }
+  if(st.router){
+    var dx = st.router.x-w.x, dy = st.router.y-w.y;
+    if(Math.sqrt(dx*dx+dy*dy) < tol){ snapshot(); st.router = null; save(); draw(); return; }
+  }
+  var bw = -1, bd = tol;
+  for(var k=0;k<st.walls.length;k++){
+    var d = distToWall(st.walls[k], w);
+    if(d < bd){ bd = d; bw = k; }
+  }
+  if(bw >= 0){ snapshot(); st.walls.splice(bw,1); save(); draw(); return; }
+  var p = nearest(st.points, w, tol);
+  if(p >= 0){ snapshot(); st.points.splice(p,1); save(); draw(); }
+}
+
+/* --- 指・マウスの受け取り --- */
+function pos(e){
+  var r = cv.getBoundingClientRect();
+  return toWorld(e.clientX - r.left, e.clientY - r.top);
+}
+cv.addEventListener('pointerdown', function(e){
+  e.preventDefault();
+  var w = pos(e);
+  if(mode === 'wall'){
+    cv.setPointerCapture(e.pointerId);
+    drag = {x1:w.x, y1:w.y, x2:w.x, y2:w.y};
+  }
+});
+cv.addEventListener('pointermove', function(e){
+  if(!drag) return;
+  var w = pos(e);
+  drag.x2 = w.x; drag.y2 = w.y;
+  // まっすぐに近ければ、たて・よこに揃える
+  var dx = Math.abs(drag.x2-drag.x1), dy = Math.abs(drag.y2-drag.y1);
+  if(dx > dy && dy < dx*0.28) drag.y2 = drag.y1;
+  else if(dy > dx && dx < dy*0.28) drag.x2 = drag.x1;
+  draw();
+});
+function endDrag(){
+  if(!drag) return;
+  var dx = drag.x2-drag.x1, dy = drag.y2-drag.y1;
+  if(Math.sqrt(dx*dx+dy*dy) > 0.25){ snapshot(); st.walls.push(drag); save(); }
+  drag = null; draw();
+}
+cv.addEventListener('pointerup', function(e){
+  if(mode === 'wall'){ endDrag(); return; }
+  var w = pos(e);
+  if(mode === 'measure') addPoint(w);
+  else if(mode === 'router'){ snapshot(); st.router = {x:w.x, y:w.y}; save(); draw(); }
+  else if(mode === 'erase') eraseAt(w);
+  else if(mode === 'label'){
+    var t = prompt('へやの名前は？', '居間');
+    if(t){ snapshot(); st.labels.push({x:w.x, y:w.y, text:t.slice(0,10)}); save(); draw(); }
+  }
+});
+cv.addEventListener('pointercancel', function(){ drag = null; draw(); });
+
+/* =========================================================
+   6. 下のボタン
+   ========================================================= */
+document.getElementById('bUndo').addEventListener('click', function(){
+  if(!history.length) return;
+  var v = JSON.parse(history.pop());
+  st.points = v.points; st.walls = v.walls; st.labels = v.labels; st.router = v.router;
+  save(); draw();
+});
+document.getElementById('bClear').addEventListener('click', function(){
+  if(!confirm('地図を全部消します。よろしいですか？')) return;
+  snapshot();
+  st.points = []; st.walls = []; st.labels = []; st.router = null;
+  showReading(null); save(); draw();
+});
+document.getElementById('bSave').addEventListener('click', function(){
+  var out = document.createElement('canvas');
+  var sc = Math.max(2, DPR);
+  out.width = W*sc; out.height = H*sc + 40*sc;
+  var g = out.getContext('2d');
+  g.setTransform(sc,0,0,sc,0,0);
+  g.fillStyle = '#f4f1e9'; g.fillRect(0,0,W,H+40);
+  g.drawImage(cv, 0, 0, W, H);
+  // 下に色の見本
+  var gr = g.createLinearGradient(14, 0, W-14, 0);
+  gr.addColorStop(0,'#d62828'); gr.addColorStop(.3,'#f77f00');
+  gr.addColorStop(.55,'#fcbf49'); gr.addColorStop(.78,'#90be6d'); gr.addColorStop(1,'#2a9d8f');
+  g.fillStyle = gr; g.fillRect(52, H+16, W-104, 8);
+  g.fillStyle = '#2b2b2b'; g.font = '11px sans-serif';
+  g.textAlign = 'left';  g.fillText('弱い', 14, H+23);
+  g.textAlign = 'right'; g.fillText('強い', W-14, H+23);
+
+  out.toBlob(function(blob){
+    if(!blob) return;
+    var file = new File([blob], 'denpa-map.png', {type:'image/png'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({files:[file], title:'電波マップ'}).catch(function(){});
+      return;
+    }
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'denpa-map.png';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+  }, 'image/png');
+});
+
+/* =========================================================
+   7. かぶせ画面と設定
+   ========================================================= */
+function sheet(id, on){ document.getElementById(id).classList.toggle('on', on); }
+document.getElementById('bHelp').addEventListener('click', function(){ sheet('help', true); });
+document.getElementById('bSet').addEventListener('click',  function(){ sheet('set',  true); });
+document.querySelectorAll('.sheet').forEach(function(s){
+  s.addEventListener('click', function(e){
+    if(e.target === s || e.target.hasAttribute('data-close')){
+      s.classList.remove('on');
+      if(s.id === 'pick') pending = null;
+    }
+  });
+});
+
+var swManual  = document.getElementById('swManual');
+var swCareful = document.getElementById('swCareful');
+var selWorld  = document.getElementById('selWorld');
+var selRadius = document.getElementById('selRadius');
+
+function syncSettings(){
+  swManual.classList.toggle('on', st.manual);
+  swCareful.classList.toggle('on', st.careful);
+  selWorld.value  = String(st.world);
+  selRadius.value = String(st.radius);
+}
+swManual.addEventListener('click', function(){ st.manual = !st.manual; syncSettings(); save(); });
+swCareful.addEventListener('click', function(){ st.careful = !st.careful; syncSettings(); save(); });
+selWorld.addEventListener('change', function(){
+  st.world = parseFloat(selWorld.value); PPM = W / st.world; save(); draw();
+});
+selRadius.addEventListener('change', function(){
+  st.radius = parseFloat(selRadius.value); save(); draw();
+});
+syncSettings();
+
+/* =========================================================
+   8. 立ち上げ
+   ========================================================= */
+window.addEventListener('resize', fit);
+window.addEventListener('orientationchange', function(){ setTimeout(fit, 250); });
+fit();
+setMode('measure');
+showReading(null);
+if(!st.points.length && !localStorage.getItem(KEY + '-seen')){
+  sheet('help', true);
+  try{ localStorage.setItem(KEY + '-seen','1'); }catch(e){}
+}
+
+// 電波がなくても開けるようにする裏方
+if('serviceWorker' in navigator && location.protocol !== 'file:'){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('./sw.js').catch(function(){});
+  });
+}
+})();
+</script>
+</body>
+</html>

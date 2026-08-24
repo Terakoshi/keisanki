@@ -1,6 +1,6 @@
-/* 電波がなくても開けるようにするための裏方ファイル */
+/* 電波がなくても開けるようにするための裏方ファイル（電波マップ用） */
 /* ファイルを直したら、下の数字を1つ増やすこと（古い画面が残らないように） */
-var CACHE = 'keisanki-v3';
+var CACHE = 'denpa-v1';
 var FILES = [
   './',
   './index.html',
@@ -18,37 +18,29 @@ self.addEventListener('install', function(e){
 
 self.addEventListener('activate', function(e){
   /* 古くなった保存版だけを片づける。
-     同じ置き場に別のアプリが入っているので、電波マップの保存版まで消してしまわないように、
-     自分の名前（keisanki-…）以外は絶対に消さないこと */
+     同じ置き場に別のアプリが入っているので、計算機の保存版まで消してしまわないように、
+     自分の名前（denpa-…）以外は絶対に消さないこと */
   e.waitUntil(
     caches.keys().then(function(keys){
       return Promise.all(keys.map(function(k){
         if(k === CACHE) return null;
-        if(k.indexOf('keisanki-') !== 0) return null;
+        if(k.indexOf('denpa-') !== 0) return null;
         return caches.delete(k);
       }));
     }).then(function(){ return self.clients.claim(); })
   );
 });
 
-/* このフォルダ直下のファイルだけを受け持つ。
-   下の階層（例: denpa/ の電波マップ）は、そちらの裏方ファイルに任せて手を出さない */
-function isMine(url){
-  var root = new URL('./', self.registration.scope).href;
-  var u = new URL(url);
-  var href = u.origin + u.pathname;
-  if(href.indexOf(root) !== 0) return false;
-  return href.slice(root.length).indexOf('/') === -1;
-}
-
 self.addEventListener('fetch', function(e){
   if(e.request.method !== 'GET') return;
-  if(!isMine(e.request.url)) return;
+
+  // 電波を測るための問い合わせは、絶対に保存版で答えない（保存版だと速さが測れない）
+  if(e.request.url.indexOf('ping.txt') !== -1) return;
 
   var isPage = e.request.mode === 'navigate' || e.request.destination === 'document';
 
   if(isPage){
-    // 画面本体は「まず最新を取りに行き、取れなければ保存版」。直した内容がすぐ反映される
+    // 画面本体は「まず最新を取りに行き、取れなければ保存版」
     e.respondWith(
       fetch(e.request).then(function(res){
         var copy = res.clone();
