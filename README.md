@@ -24,6 +24,15 @@ PWA（ブラウザで動き、iPhone のホーム画面に置けるウェブア�
 | `sw.js` | 電波がなくても開けるようにする裏方 |
 | `icon-192.png` / `icon-512.png` / `apple-touch-icon.png` | アイコン画像 |
 
+## 公開先（2026-08-25〜）
+
+**https://terakoshi.github.io/keisanki/**
+
+GitHub Pages（無料の置き場）に公開済み。パソコンを付けていなくても、いつでもこの住所で開ける。
+
+- 置き場: https://github.com/Terakoshi/keisanki （公開）
+- このフォルダ自体が git 管理になっている。ファイルを直したら `git add -A` → `git commit` → `git push` で公開先も更新される（1分ほどで反映）
+
 ## 動かし方
 
 ### パソコンで見るだけ
@@ -32,21 +41,22 @@ PWA（ブラウザで動き、iPhone のホーム画面に置けるウェブア�
 
 ### iPhone のホーム画面に置く
 
-iPhone からは「パソコンの中のファイル」は開けないので、**同じWi-Fiのパソコンから配る**必要がある。
+1. iPhone の **Safari** で https://terakoshi.github.io/keisanki/ を開く
+2. 下の共有ボタン → 「ホーム画面に追加」
 
-1. パソコンで次のコマンドを実行する（パソコンを簡易的な配信役にする命令）。
+アイコンが並び、タップするとアドレスバーのないアプリのように開く。https なので「電波がなくても開ける」機能も働く。
 
-   ```
-   python -m http.server 8000 --directory "C:\Users\terak\claude_workspace\work\副業\apps\keisanki"
-   ```
+### （参考）パソコンから直接配る方法
 
-2. パソコンのIPアドレスを調べる（コマンド `ipconfig` の「IPv4 アドレス」。例: 192.168.1.5）。
-3. iPhone の Safari で `http://192.168.1.5:8000` を開く。
-4. 下の共有ボタン → 「ホーム画面に追加」。
+公開したくない試作を iPhone で見たいときは、同じWi-Fiのパソコンから配れる。
 
-これでアイコンが並び、タップするとアドレスバーのないアプリのように開く。
-※ この方法（http）だと「電波がなくても開ける」機能だけは働かない。パソコンの配信を止めると開けなくなる。
-常に使いたい場合は、どこか無料の置き場（GitHub Pages など）に上げると、パソコンを付けっぱなしにしなくてよくなる。
+```
+python -m http.server 8000 --directory "C:\Users\terak\claude_workspace\work\副業\apps\keisanki"
+```
+
+`ipconfig` で調べたIPアドレスを使って、iPhone の Safari で `http://そのIP:8000` を開く。
+**ただし iPhone 側の設定で「安全でない接続（http）」が拒否されることがある**（2026-08-25 に実際に詰まった）。
+その場合は上の GitHub Pages 方式を使うほうが早い。
 
 ## 分かったこと（次に作るときのメモ）
 
