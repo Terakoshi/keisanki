@@ -1,5 +1,6 @@
 /* 電波がなくても開けるようにするための裏方ファイル */
-var CACHE = 'keisanki-v1';
+/* ファイルを直したら、下の数字を1つ増やすこと（古い画面が残らないように） */
+var CACHE = 'keisanki-v2';
 var FILES = [
   './',
   './index.html',
@@ -25,9 +26,32 @@ self.addEventListener('activate', function(e){
 
 self.addEventListener('fetch', function(e){
   if(e.request.method !== 'GET') return;
+
+  var isPage = e.request.mode === 'navigate' || e.request.destination === 'document';
+
+  if(isPage){
+    // 画面本体は「まず最新を取りに行き、取れなければ保存版」。直した内容がすぐ反映される
+    e.respondWith(
+      fetch(e.request).then(function(res){
+        var copy = res.clone();
+        caches.open(CACHE).then(function(c){ c.put('./index.html', copy); });
+        return res;
+      }).catch(function(){
+        return caches.match('./index.html');
+      })
+    );
+    return;
+  }
+
+  // アイコンなどは「保存版があればそれを使い、裏で最新に入れ替える」
   e.respondWith(
     caches.match(e.request).then(function(hit){
-      return hit || fetch(e.request).catch(function(){ return caches.match('./index.html'); });
+      var net = fetch(e.request).then(function(res){
+        var copy = res.clone();
+        caches.open(CACHE).then(function(c){ c.put(e.request, copy); });
+        return res;
+      }).catch(function(){ return hit; });
+      return hit || net;
     })
   );
 });
