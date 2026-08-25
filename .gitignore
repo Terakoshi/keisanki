@@ -1,0 +1,20 @@
+# ここに書いた名前のファイルは、git が見なくなる。
+# ＝ うっかり GitHub に上げてしまうことがなくなる。
+# この置き場は公開なので、人に見せたくないものは必ずここに足すこと。
+
+# 手元だけのメモ・AIへの指示
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+メモ*.txt
+*.local.md
+
+# パスワード・鍵のたぐい（絶対に上げない）
+.env
+*.key
+*.pem
+
+# パソコンが勝手に作るファイル
+.DS_Store
+Thumbs.db
+desktop.ini
